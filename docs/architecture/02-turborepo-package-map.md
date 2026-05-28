@@ -120,10 +120,9 @@ This package should be the compatibility anchor for the entire repo.
 
 ### `packages/design-tokens`
 
-- Color palette
-- Typography tokens
-- Spacing and layout tokens
-- Motion, radius, elevation, and semantic theme values
+- Single source for the visual language
+- Color, spacing, radius, shadow, motion, and typography tokens
+- Semantic surfaces and chart/mood/tracker palettes
 
 ### `packages/storage`
 

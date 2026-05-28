@@ -1,0 +1,19 @@
+{
+  "extends": "../../packages/tsconfig/mobile.json",
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["./*"],
+      "@upward/types": ["../../../packages/types/src/index.ts"],
+      "@upward/types/*": ["../../../packages/types/src/*"],
+      "@upward/utils": ["../../../packages/utils/src/index.ts"],
+      "@upward/utils/*": ["../../../packages/utils/src/*"],
+      "@upward/config": ["../../../packages/config/src/index.ts"],
+      "@upward/config/*": ["../../../packages/config/src/*"],
+      "@upward/ui": ["../../../packages/ui/src/index.tsx"],
+      "@upward/ui/*": ["../../../packages/ui/src/*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["dist", "node_modules", ".expo"]
+}

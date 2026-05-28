@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/tsconfig" },
+    { "path": "packages/design-tokens" },
+    { "path": "packages/types" },
+    { "path": "packages/utils" },
+    { "path": "packages/config" },
+    { "path": "packages/ui" },
+    { "path": "apps/web" },
+    { "path": "apps/mobile" },
+    { "path": "apps/api" }
+  ]
+}

@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install pnpm
+        run: npm install -g pnpm
+      - name: Install dependencies
+        run: pnpm -w install --frozen-lockfile
+      - name: Typecheck web
+        run: pnpm --filter @upward/web typecheck
+      - name: Typecheck api
+        run: pnpm --filter @upward/api typecheck
+      - name: Run tests (web)
+        run: pnpm --filter @upward/web test --silent
+      - name: Build web
+        run: pnpm --filter @upward/web build
+      - name: Build api
+        run: pnpm --filter @upward/api build

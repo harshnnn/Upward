@@ -8,6 +8,8 @@ This folder captures the production architecture for Upward.
 - [TurboRepo Package Map](02-turborepo-package-map.md)
 - [NestJS Domain Architecture](03-nestjs-domain-architecture.md)
 - [Data, Auth, Sync, Analytics, and Scalability](04-data-auth-sync-analytics.md)
+- [TurboRepo Monorepo Setup](05-monorepo-setup.md)
+- [Design System](06-design-system.md)
 
 ## Scope
 

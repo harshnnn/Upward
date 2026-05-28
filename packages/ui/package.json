@@ -1,0 +1,16 @@
+{
+  "name": "@upward/ui",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "@upward/design-tokens": "workspace:*",
+    "@upward/types": "workspace:*",
+    "@upward/utils": "workspace:*",
+    "react": "^19.0.0",
+    "react-native": "^0.76.0"
+  },
+  "main": "src/index.tsx",
+  "types": "src/index.tsx",
+  "files": ["src"],
+  "license": "UNLICENSED"
+}

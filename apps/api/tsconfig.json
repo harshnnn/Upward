@@ -1,0 +1,18 @@
+{
+  "extends": "../../packages/tsconfig/node.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "../../",
+    "baseUrl": "./src",
+    "paths": {
+      "@upward/types": ["../../../packages/types/src/index.ts"],
+      "@upward/types/*": ["../../../packages/types/src/*"],
+      "@upward/utils": ["../../../packages/utils/src/index.ts"],
+      "@upward/utils/*": ["../../../packages/utils/src/*"],
+      "@upward/config": ["../../../packages/config/src/index.ts"],
+      "@upward/config/*": ["../../../packages/config/src/*"]
+    }
+  },
+  "include": ["src", "test", "../../packages/types/src", "../../packages/utils/src", "../../packages/config/src"],
+  "exclude": ["dist", "node_modules"]
+}

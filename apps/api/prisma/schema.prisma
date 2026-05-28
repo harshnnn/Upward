@@ -1,0 +1,822 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum AuthProvider {
+  PASSWORD
+  GOOGLE
+  APPLE
+  GITHUB
+}
+
+enum SessionStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum DevicePlatform {
+  WEB
+  IOS
+  ANDROID
+  OTHER
+}
+
+model User {
+  id               String         @id @default(uuid()) @db.Uuid
+  email            String         @unique
+  handle           String?        @unique
+  displayName      String?
+  role             UserRole       @default(USER)
+  status           UserStatus     @default(ACTIVE)
+  emailVerifiedAt  DateTime?
+  lastLoginAt      DateTime?
+  deletedAt        DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  credential        UserCredential?
+  sessions          Session[]
+  devices           Device[]
+  oauthAccounts     OAuthAccount[]
+  passwordResets    PasswordResetToken[]
+  emailVerifications EmailVerificationToken[]
+  auditLogsAsActor   AuthAuditLog[] @relation("AuditActor")
+  auditLogsAsTarget   AuthAuditLog[] @relation("AuditTarget")
+
+  @@index([status, createdAt])
+  @@map("users")
+}
+
+model UserCredential {
+  id               String       @id @default(uuid()) @db.Uuid
+  userId           String       @unique @db.Uuid
+  passwordHash     String?
+  passwordChangedAt DateTime?
+  mustChangePassword Boolean    @default(false)
+  deletedAt        DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_credentials")
+}
+
+model Session {
+  id                 String        @id @default(uuid()) @db.Uuid
+  userId             String        @db.Uuid
+  deviceId           String?       @db.Uuid
+  status             SessionStatus @default(ACTIVE)
+  refreshTokenHash   String?
+  refreshTokenVersion Int          @default(0)
+  ipAddress          String?
+  userAgent          String?
+  issuedAt           DateTime      @default(now())
+  expiresAt          DateTime
+  revokedAt          DateTime?
+  lastSeenAt         DateTime?
+  deletedAt          DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status, expiresAt])
+  @@index([deviceId, status])
+  @@map("sessions")
+}
+
+model Device {
+  id               String         @id @default(uuid()) @db.Uuid
+  userId           String         @db.Uuid
+  name             String
+  platform         DevicePlatform @default(OTHER)
+  deviceFingerprint String?
+  pushToken        String?
+  lastSeenAt       DateTime?
+  deletedAt        DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions Session[]
+
+  @@unique([userId, deviceFingerprint])
+  @@index([userId, platform])
+  @@map("devices")
+}
+
+model OAuthAccount {
+  id                   String       @id @default(uuid()) @db.Uuid
+  userId               String       @db.Uuid
+  provider             AuthProvider
+  providerAccountId    String
+  accessTokenEncrypted String?
+  refreshTokenEncrypted String?
+  scopes               String?
+  deletedAt            DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId, provider])
+  @@map("oauth_accounts")
+}
+
+model PasswordResetToken {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  tokenHash     String
+  expiresAt     DateTime
+  usedAt        DateTime?
+  requestedIp   String?
+  deletedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  tokenHash     String
+  expiresAt     DateTime
+  usedAt        DateTime?
+  deletedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("email_verification_tokens")
+}
+
+model AuthAuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String?  @db.Uuid
+  targetUserId String? @db.Uuid
+  action      String
+  entityType  String
+  entityId    String?
+  requestId   String?
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  actor User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  target User? @relation("AuditTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId])
+  @@map("auth_audit_logs")
+}
+
+enum TrackerType {
+  BOOLEAN
+  NUMERIC
+  TEXT
+  RATING
+  DURATION
+  PERCENTAGE
+  SELECT
+  MULTI_SELECT
+}
+
+model TrackerTemplate {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  createdBy   String   @db.Uuid
+  config      Json
+  visibility  String   @default("private")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdBy])
+  @@map("tracker_templates")
+}
+
+model TrackerCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trackers  Tracker[]
+
+  @@index([userId])
+  @@map("tracker_categories")
+}
+
+model Tracker {
+  id          String      @id @default(uuid()) @db.Uuid
+  userId      String      @db.Uuid
+  templateId  String?     @db.Uuid
+  categoryId  String?     @db.Uuid
+  name        String
+  description String?
+  type        TrackerType
+  key         String      @unique
+  config      Json
+  color       String?
+  isArchived  Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  category    TrackerCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  entries     TrackerEntry[]
+  options     TrackerOption[]
+  goals       Goal[]
+  streaks     Streak[]
+
+  @@index([userId, type])
+  @@map("trackers")
+}
+
+model TrackerOption {
+  id        String   @id @default(uuid()) @db.Uuid
+  trackerId String   @db.Uuid
+  label     String
+  value     String
+  position  Int      @default(0)
+
+  tracker Tracker @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+
+  @@index([trackerId])
+  @@map("tracker_options")
+}
+
+model TrackerEntry {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  trackerId       String   @db.Uuid
+  date            DateTime // stores date (UTC) — normalize to start of day in service
+  valueJson       Json
+  normalizedValue Float?
+  note            String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tracker Tracker @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+
+  @@index([userId, trackerId, date])
+  @@map("tracker_entries")
+}
+
+model Goal {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  trackerId   String   @db.Uuid
+  name        String
+  target      Json
+  cadence     String   // daily | weekly | monthly | custom
+  startDate   DateTime
+  endDate     DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tracker Tracker @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+
+  @@index([userId, trackerId, isActive])
+  @@map("goals")
+}
+
+model Streak {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  trackerId       String   @db.Uuid
+  currentCount    Int      @default(0)
+  bestCount       Int      @default(0)
+  lastActiveAt    DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tracker Tracker @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+
+  @@index([userId, trackerId])
+  @@map("streaks")
+}
+
+model DailySummary {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  date      DateTime
+  metrics   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@map("daily_summaries")
+}
+
+model JournalCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries JournalEntry[]
+
+  @@index([userId])
+  @@map("journal_categories")
+}
+
+model Tag {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries EntryTag[]
+
+  @@index([userId])
+  @@map("tags")
+}
+
+model EntryTag {
+  id        String   @id @default(uuid()) @db.Uuid
+  entryId   String   @db.Uuid
+  tagId     String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  entry JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  tag   Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, tagId])
+  @@index([tagId])
+  @@map("entry_tags")
+}
+
+model Mood {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  label     String?
+  score     Int?     // e.g., 1-10
+  createdAt DateTime @default(now())
+
+  entries JournalEntry[]
+
+  @@index([userId, createdAt])
+  @@map("moods")
+}
+
+model JournalEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  timestamp   DateTime // exact timestamp of entry
+  title       String?
+  content     String
+  moodId      String?  @db.Uuid
+  categoryId  String?  @db.Uuid
+  isPrivate   Boolean  @default(true)
+  isStarred   Boolean  @default(false)
+  isDeleted   Boolean  @default(false)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  mood       Mood?            @relation(fields: [moodId], references: [id], onDelete: SetNull)
+  category   JournalCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  tags       EntryTag[]
+  reflection Reflection?
+
+  @@index([userId, timestamp])
+  @@index([userId, isDeleted])
+  @@map("journal_entries")
+}
+
+model Reflection {
+  id        String   @id @default(uuid()) @db.Uuid
+  entryId   String   @unique @db.Uuid
+  userId    String   @db.Uuid
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entry JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("reflections")
+}
+
+model JournalSummary {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  date      DateTime
+  metrics   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@map("journal_summaries")
+}
+
+enum ExerciseType {
+  STRENGTH
+  CARDIO
+  MOBILITY
+  SKILL
+  OTHER
+}
+
+enum MeasurementUnit {
+  KG
+  LB
+  BODYWEIGHT
+  SECONDS
+  MINUTES
+}
+
+enum MuscleGroup {
+  CHEST
+  BACK
+  LEGS
+  SHOULDERS
+  BICEPS
+  TRICEPS
+  CORE
+  CALVES
+  GLUTES
+  HAMSTRINGS
+  QUADS
+  OTHER
+}
+
+model ExerciseCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @db.Uuid
+  name      String
+  createdAt DateTime @default(now())
+
+  exercises Exercise[]
+
+  @@index([userId])
+  @@map("exercise_categories")
+}
+
+model Exercise {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String?      @db.Uuid // null => global catalog
+  name           String
+  description    String?
+  categoryId     String?      @db.Uuid
+  type           ExerciseType @default(STRENGTH)
+  primaryMuscle  MuscleGroup?
+  secondaryMuscles Json?
+  defaultUnit    MeasurementUnit @default(KG)
+  metadata       Json?
+  isArchived     Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  category ExerciseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  workoutLogs WorkoutExerciseLog[]
+  personalRecords PersonalRecord[]
+
+  @@index([userId])
+  @@index([name])
+  @@map("exercises")
+}
+
+model WorkoutTemplate {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  name        String
+  description String?
+  config      Json     // ordered exercise slots, supersets, rest, notes
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@map("workout_templates")
+}
+
+model WorkoutSession {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  templateId  String?  @db.Uuid
+  name        String?
+  startedAt   DateTime @default(now())
+  endedAt     DateTime?
+  durationSec Int?
+  notes       String?
+  metrics     Json?    // aggregated metrics like volume, calories
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  exercises WorkoutExerciseLog[]
+
+  @@index([userId, startedAt])
+  @@map("workout_sessions")
+}
+
+model WorkoutExerciseLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  sessionId      String   @db.Uuid
+  exerciseId     String?  @db.Uuid
+  customExerciseId String? @db.Uuid
+  position       Int      @default(0)
+  supersetGroup  Int?
+  restSec        Int?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  session  WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exercise Exercise?      @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
+
+  sets WorkoutSet[]
+
+  @@index([sessionId])
+  @@map("workout_exercise_logs")
+}
+
+model WorkoutSet {
+  id              String          @id @default(uuid()) @db.Uuid
+  exerciseLogId   String          @db.Uuid
+  setIndex        Int             @default(0)
+  reps            Int?
+  weight          Float?
+  unit            MeasurementUnit @default(KG)
+  durationSec     Int?
+  rpe             Int?
+  isPR            Boolean         @default(false)
+  metadata        Json?
+  createdAt       DateTime        @default(now())
+
+  exerciseLog WorkoutExerciseLog @relation(fields: [exerciseLogId], references: [id], onDelete: Cascade)
+
+  @@index([exerciseLogId])
+  @@map("workout_sets")
+}
+
+model PersonalRecord {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  exerciseId  String   @db.Uuid
+  metric      String   // e.g., "1RM", "5RM", "MaxReps"
+  valueJson   Json
+  achievedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([userId, exerciseId])
+  @@map("personal_records")
+}
+
+model BodyMetric {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  type       String   // WEIGHT, WAIST, HIPS, CHEST, ARM
+  value      Float
+  unit       String
+  measuredAt DateTime @default(now())
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, measuredAt])
+  @@map("body_metrics")
+}
+
+model NutritionLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  timestamp  DateTime @default(now())
+  calories   Int?
+  proteinG   Int?
+  carbsG     Int?
+  fatG       Int?
+  mealType   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, timestamp])
+  @@map("nutrition_logs")
+}
+
+model WorkoutSummary {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  sessionId String   @db.Uuid
+  date      DateTime
+  metrics   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
+  @@map("workout_summaries")
+}
+
+// Vocabulary and knowledge tracking
+model VocabularyCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  words     VocabularyWord[]
+
+  @@index([userId])
+  @@map("vocabulary_categories")
+}
+
+model VocabularyTag {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  name      String
+  createdAt DateTime @default(now())
+
+  wordTags WordTag[]
+
+  @@index([userId])
+  @@map("vocabulary_tags")
+}
+
+model WordTag {
+  id     String @id @default(uuid()) @db.Uuid
+  wordId String @db.Uuid
+  tagId  String @db.Uuid
+  createdAt DateTime @default(now())
+
+  word VocabularyWord @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  tag  VocabularyTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([wordId, tagId])
+  @@index([tagId])
+  @@map("word_tags")
+}
+
+model VocabularyWord {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  word          String
+  normalized    String   // lowercased or normalized form for lookup
+  language      String   @default("en")
+  difficulty    Int?     // optional difficulty score
+  pronunciation String?
+  isFavorite    Boolean  @default(false)
+  notes         String?
+  categoryId    String?  @db.Uuid
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  category VocabularyCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  meanings Meaning[]
+  sentences Sentence[]
+  tags WordTag[]
+  revisions Revision[]
+  reviewEvents ReviewEvent[]
+
+  @@index([userId, normalized])
+  @@index([userId, createdAt])
+  @@map("vocabulary_words")
+}
+
+model Meaning {
+  id        String   @id @default(uuid()) @db.Uuid
+  wordId    String   @db.Uuid
+  userId    String   @db.Uuid
+  definition String
+  partOfSpeech String?
+  examples  Json?    // optional example sentences array
+  source    String?  // e.g., dictionary id
+  createdAt DateTime @default(now())
+
+  word VocabularyWord @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("meanings")
+}
+
+model Sentence {
+  id         String   @id @default(uuid()) @db.Uuid
+  wordId     String   @db.Uuid
+  userId     String   @db.Uuid
+  text       String
+  isExample  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  word VocabularyWord @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@index([userId, wordId])
+  @@map("sentences")
+}
+
+model Revision {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  wordId     String   @db.Uuid
+  scheduledAt DateTime
+  reviewedAt DateTime?
+  outcome    String?  // correct | incorrect | skipped
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  word VocabularyWord @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@index([userId, scheduledAt])
+  @@map("revisions")
+}
+
+model ReviewEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  wordId     String   @db.Uuid
+  eventType  String   // view, recall_attempt, add_sentence, favorite
+  createdAt  DateTime @default(now())
+  metadata   Json?
+
+  word VocabularyWord @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@index([userId, wordId])
+  @@map("review_events")
+}
+
+model VocabularySummary {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  date      DateTime
+  metrics   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@map("vocabulary_summaries")
+}
+
+model ClientOperation {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  clientOpId   String
+  method       String
+  path         String
+  requestBody  Json?
+  statusCode   Int?
+  responseBody Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, clientOpId])
+  @@index([userId, createdAt])
+  @@map("client_operations")
+}
+
+model Reminder {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  title        String
+  body         String?
+  scheduledAt  DateTime
+  timezone     String?
+  channel      String   @default("local")
+  metadata     Json?
+  isCompleted  Boolean  @default(false)
+  completedAt  DateTime?
+  notifiedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId, scheduledAt])
+  @@index([userId, isCompleted])
+  @@map("reminders")
+}
+
